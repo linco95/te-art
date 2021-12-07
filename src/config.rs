@@ -4,7 +4,7 @@ pub struct Config {
 
 impl Config {
     pub fn new(args: &[String]) -> Result<Config, &str> {
-        if args.len() < 1 {
+        if args.len() < 2 {
             return Err("Not enough arguments");
         }
 
