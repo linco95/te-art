@@ -1,8 +1,18 @@
 mod config;
 
-use std::{env, error::Error, fs::create_dir, path::Path, process};
+use std::{
+    env,
+    error::Error,
+    fs::{create_dir, write},
+    path::Path,
+    process,
+};
 
-use teart::{get_raw_buffer, parse_image, save_image, InputData};
+use chrono::{TimeZone, Utc};
+use teart::{
+    image_parsing::{get_raw_buffer, parse_image, save_image, InputData},
+    reservation_converter::{convert_image_to_reservation, ServerParams},
+};
 
 use crate::config::Config;
 
@@ -38,5 +48,37 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         )
         .as_str(),
     );
+
+    let login_name = "StudentUserName".to_string();
+    let auth_server = "Students_SAML2".to_string();
+    let org = "SomeOrg".to_string();
+    let reservation_mode = "StudentGroupRoomBooking".to_string();
+    let start_datetime = Utc.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0);
+
+    let server_params = ServerParams {
+        login_name,
+        auth_server,
+        org,
+        reservation_mode,
+    };
+
+    let xml_payload = convert_image_to_reservation(
+        quant_res.quantized_image.into_raw_vec(),
+        dimensions,
+        start_datetime,
+        server_params,
+    );
+
+    write(
+        format!(
+            "output/xml_payload_{}.xml",
+            Path::new(config.path.as_str())
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap(),
+        ),
+        xml_payload,
+    )?;
     Ok(())
 }
