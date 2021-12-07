@@ -1,8 +1,8 @@
 mod config;
 
-use std::{env, error::Error, fs::create_dir, process};
+use std::{env, error::Error, fs::create_dir, path::Path, process};
 
-use teart::quantizie_image;
+use teart::{get_raw_buffer, quantizie_image, save_image};
 
 use crate::config::Config;
 
@@ -15,8 +15,24 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         process::exit(1);
     });
 
-    create_dir("output").ok();
-    quantizie_image(config.path.as_str(), (SIZE, SIZE));
+    let dimensions = (SIZE, SIZE);
 
+    create_dir("output").ok();
+    let quant_res = quantizie_image(config.path.as_str(), dimensions).unwrap();
+    let raw_buffer = get_raw_buffer(&quant_res.result_pixels);
+
+    save_image(
+        raw_buffer,
+        dimensions,
+        format!(
+            "./output/quantized_output_{}",
+            Path::new(config.path.as_str())
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap(),
+        )
+        .as_str(),
+    );
     Ok(())
 }

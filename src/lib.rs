@@ -6,17 +6,13 @@ use image::{
     imageops::{resize, FilterType},
     save_buffer, ColorType, DynamicImage, ImageBuffer, Pixel, Rgba,
 };
+pub struct QuantizationResult {
+    pub result_pixels: Vec<Rgb>,
+    pub quantized_image: Matrix2d<u8>,
+}
 
-pub fn quantizie_image(path: &str, dimensions: (u32, u32)) {
-    let path = Path::new(path);
-
-    let img = read_image(path.to_str().unwrap());
-
-    let scaled_img = scale_image(img, dimensions);
-
-    let pixels = get_pixels(&scaled_img);
-
-    let te_palette: Vec<Rgb> = Vec::from([
+pub fn get_palette() -> Vec<Rgb> {
+    Vec::from([
         [1, 1, 1],
         [172, 218, 148],
         [255, 254, 231],
@@ -37,27 +33,42 @@ pub fn quantizie_image(path: &str, dimensions: (u32, u32)) {
     ])
     .iter()
     .map(|&c| into_f64_rgb(&c))
-    .collect();
+    .collect()
+}
 
-    let quantified_image = quantify_image(
+pub fn quantizie_image(
+    path: &str,
+    dimensions: (u32, u32),
+) -> std::result::Result<QuantizationResult, Box<dyn Error>> {
+    let path = Path::new(path);
+    let img = read_image(path.to_str().unwrap());
+    let scaled_img = scale_image(img, dimensions);
+    let pixels = get_pixels(&scaled_img);
+
+    quantize_image(
         dimensions.0 as usize,
         dimensions.1 as usize,
         pixels,
-        te_palette,
+        get_palette(),
     )
-    .unwrap();
+}
 
-    let raw_buffer = get_raw_buffer(&quantified_image.0);
+pub fn get_raw_buffer(pixels: &[Rgb]) -> Vec<u8> {
+    pixels
+        .iter()
+        .flat_map(move |pixel| into_u8_rgb(*pixel))
+        .collect()
+}
 
-    save_image(
-        raw_buffer,
-        dimensions,
-        format!(
-            "./output/quantized_output_{}",
-            path.file_name().unwrap().to_str().unwrap(),
-        )
-        .as_str(),
-    );
+pub fn save_image(buffer: Vec<u8>, dimensions: (u32, u32), path: &str) {
+    save_buffer(
+        path,
+        buffer.as_slice(),
+        dimensions.0,
+        dimensions.1,
+        ColorType::Rgb8,
+    )
+    .expect("Failed to save image buffer");
 }
 
 fn scale_image(img: DynamicImage, dimensions: (u32, u32)) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -66,13 +77,6 @@ fn scale_image(img: DynamicImage, dimensions: (u32, u32)) -> ImageBuffer<Rgba<u8
 
 fn get_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Vec<&[u8]> {
     img.pixels().map(|pixel| pixel.channels()).collect()
-}
-
-fn get_raw_buffer(pixels: &[Rgb]) -> Vec<u8> {
-    pixels
-        .iter()
-        .flat_map(move |pixel| into_u8_rgb(*pixel))
-        .collect()
 }
 
 fn into_f64_rgb(pixel: &[u8]) -> Rgb {
@@ -91,36 +95,21 @@ fn into_u8_rgb(pixel: Rgb) -> [u8; 3] {
     ]
 }
 
-fn save_image(buffer: Vec<u8>, dimensions: (u32, u32), path: &str) {
-    save_buffer(
-        path,
-        buffer.as_slice(),
-        dimensions.0,
-        dimensions.1,
-        ColorType::Rgb8,
-    )
-    .expect("Failed to save image buffer");
-}
-
 fn read_image(path: &str) -> DynamicImage {
     // TODO: Add error handling?
     image::open(path).unwrap()
 }
 
-fn quantify_image(
+fn quantize_image(
     width: usize,
     height: usize,
     img: Vec<&[u8]>,
     input_palette: Vec<Rgb>,
-) -> Result<(Vec<Rgb>, Matrix2d<u8>), Box<dyn Error>> {
-    println!("Quantifying image...");
-
-    let palette_size = input_palette.len() as u8;
-
-    // Create the output buffer and quantized palette index buffer
-    let mut quantized_image = Matrix2d::new(width, height);
+) -> Result<QuantizationResult, Box<dyn Error>> {
+    println!("Quantizizing image...");
 
     // Build the quantization parameters, verify if accepting user input
+    let palette_size = input_palette.len() as u8;
     let mut conditions = Params::new();
     conditions.palette_size(palette_size);
     conditions.dithering_level_auto(width as u32, height as u32, palette_size as usize);
@@ -136,6 +125,9 @@ fn quantify_image(
 
     let mut palette = Vec::with_capacity(palette_size as usize);
 
+    // Create the output buffer and quantized palette index buffer
+    let mut quantized_image = Matrix2d::new(width, height);
+
     spatial_color_quant(&image, &mut quantized_image, &mut palette, &conditions)?;
 
     let result_pixels = quantized_image
@@ -150,5 +142,8 @@ fn quantify_image(
                 .unwrap()
         })
         .collect();
-    Ok((result_pixels, quantized_image))
+    Ok(QuantizationResult {
+        result_pixels,
+        quantized_image,
+    })
 }
