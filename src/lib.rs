@@ -11,6 +11,11 @@ pub struct QuantizationResult {
     pub quantized_image: Matrix2d<u8>,
 }
 
+pub struct InputData {
+    pub path: String,
+    pub dimensions: (u32, u32),
+}
+
 pub fn get_palette() -> Vec<Rgb> {
     Vec::from([
         [1, 1, 1],
@@ -36,21 +41,24 @@ pub fn get_palette() -> Vec<Rgb> {
     .collect()
 }
 
-pub fn quantizie_image(
-    path: &str,
-    dimensions: (u32, u32),
-) -> std::result::Result<QuantizationResult, Box<dyn Error>> {
-    let path = Path::new(path);
+pub fn parse_image(input: InputData) -> std::result::Result<QuantizationResult, Box<dyn Error>> {
+    let path = Path::new(input.path.as_str());
     let img = read_image(path.to_str().unwrap());
-    let scaled_img = scale_image(img, dimensions);
+    let scaled_img = scale_image(img, input.dimensions);
     let pixels = get_pixels(&scaled_img);
 
-    quantize_image(
-        dimensions.0 as usize,
-        dimensions.1 as usize,
+    let result = quantize_image(
+        input.dimensions.0 as usize,
+        input.dimensions.1 as usize,
         pixels,
         get_palette(),
-    )
+    );
+
+    if let Ok(res) = &result {
+        println!("{:?}", res.quantized_image);
+    }
+
+    result
 }
 
 pub fn get_raw_buffer(pixels: &[Rgb]) -> Vec<u8> {
