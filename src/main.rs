@@ -49,9 +49,9 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         .as_str(),
     );
 
-    let login_name = "StudentUserName".to_string();
-    let auth_server = "Students_SAML2".to_string();
-    let org = "SomeOrg".to_string();
+    let login_name = "TEAdmin_ak".to_string();
+    let auth_server = "timeedit".to_string();
+    let org = "admin".to_string();
     let reservation_mode = "StudentGroupRoomBooking".to_string();
     let start_datetime = Utc.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0);
 
