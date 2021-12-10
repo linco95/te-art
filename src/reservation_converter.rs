@@ -139,9 +139,18 @@ fn convert_pixel_to_reservation(
     start_datetime: DateTime<Utc>,
 ) -> Option<Reservation> {
     let timestep = timestep.unwrap_or(10);
-    let color_objects: Vec<String> = (0..18).map(|n| format!("object_color_{}", n - 1)).collect();
+    let color_objects: Vec<String> = (0..19).map(|n| format!("object_color_{}", n - 1)).collect();
     if color < 1 {
-        None
+        return Some(Reservation {
+            start_time: start_datetime,
+            objects: vec![TEObject::new("object_color_11")],
+            fields: vec![],
+            start_time_offset: Duration::minutes(
+                (coord.x * Duration::days(1).num_minutes() as u32 + coord.y * timestep) as i64,
+            ),
+            duration: Duration::minutes(timestep as i64),
+            org: org.to_string(),
+        });
     } else if color >= color_objects.len() as u8 {
         panic!("Color was out of range: {}", color);
     } else {
