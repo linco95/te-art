@@ -53,6 +53,9 @@ impl From<AppConfig> for ServerParams {
         if cfg.login_name.is_empty() {
             panic!("Login name was not found, please add it to teart_cfg")
         }
+        if cfg.color_objects.len() != get_palette().len() {
+            panic!("Must be exactly {} color objects", get_palette().len())
+        }
         let naive_start_datetime =
             NaiveDateTime::parse_from_str(&cfg.start_datetime, DATE_FORMAT).unwrap();
         ServerParams {
