@@ -12,13 +12,13 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 
 use teart::{
-    image_parsing::{get_raw_buffer, parse_image, save_image, InputData},
+    image_parsing::{get_palette, get_raw_buffer, parse_image, save_image, InputData},
     reservation_converter::{convert_image_to_reservation, ServerParams, TEObject, DATE_FORMAT},
 };
 
 use crate::config::Config;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct AppConfig {
     size: u32,
     login_name: String,
@@ -34,22 +34,27 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             size: 128,
-            login_name: "Enter username...".to_string(),
+            login_name: "".to_string(),
             auth_server: "timeedit".to_string(),
             org: "admin".to_string(),
             reservation_mode: "coloring".to_string(),
             start_datetime: "20220103T000000".to_string(),
             canvas_object: ("canvas".to_string(), "linn".to_string()),
-            color_objects: vec![("canvas_object".to_string(), "color_object_0".to_string())],
+            color_objects: (0..get_palette().len())
+                .into_iter()
+                .map(|i| ("color_object".into(), format!("color_object_{}", i)))
+                .collect(),
         }
     }
 }
 
 impl From<AppConfig> for ServerParams {
     fn from(cfg: AppConfig) -> Self {
+        if cfg.login_name.is_empty() {
+            panic!("Login name was not found, please add it to teart_cfg")
+        }
         let naive_start_datetime =
             NaiveDateTime::parse_from_str(&cfg.start_datetime, DATE_FORMAT).unwrap();
-
         ServerParams {
             login_name: cfg.login_name,
             auth_server: cfg.auth_server,
@@ -70,7 +75,9 @@ impl From<AppConfig> for ServerParams {
 }
 
 fn main() -> std::result::Result<(), Box<dyn Error>> {
-    const SIZE: u32 = 128;
+    let cfg: AppConfig = confy::load_path("./teart_cfg")?;
+    println!("{:?}", cfg);
+
     let args: Vec<String> = env::args().collect();
 
     let config = Config::new(&args).unwrap_or_else(|err| {
@@ -78,7 +85,8 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         process::exit(1);
     });
 
-    let dimensions = (SIZE, SIZE);
+    let dimensions = (cfg.size, cfg.size);
+    let server_params: ServerParams = cfg.into();
 
     create_dir("output").ok();
     let quant_res = parse_image(InputData {
@@ -105,7 +113,7 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
     let xml_payload = convert_image_to_reservation(
         quant_res.quantized_image.into_raw_vec(),
         dimensions,
-        AppConfig::default().into(),
+        server_params,
     );
 
     write(
