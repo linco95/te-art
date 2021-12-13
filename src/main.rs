@@ -10,8 +10,10 @@ use std::{
 
 use chrono::{TimeZone, Utc};
 use teart::{
-    image_parsing::{get_raw_buffer, parse_image, save_image, InputData},
-    reservation_converter::{convert_image_to_reservation, ServerParams},
+    image_parsing::{get_palette, get_raw_buffer, parse_image, save_image, InputData},
+    reservation_converter::{
+        convert_image_to_reservation, get_default_color_objects, ServerParams, TEObject,
+    },
 };
 
 use crate::config::Config;
@@ -54,12 +56,16 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
     let org = "admin".to_string();
     let reservation_mode = "StudentGroupRoomBooking".to_string();
     let start_datetime = Utc.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0);
+    let canvas_object = TEObject::new("canvas", "_te_411193");
+    let color_objects = get_default_color_objects(get_palette().len() as u8);
 
     let server_params = ServerParams {
         login_name,
         auth_server,
         org,
         reservation_mode,
+        canvas_object,
+        color_objects,
     };
 
     let xml_payload = convert_image_to_reservation(
@@ -78,7 +84,7 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
                 .to_str()
                 .unwrap(),
         ),
-        xml_payload,
+        xml_payload?,
     )?;
     Ok(())
 }

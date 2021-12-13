@@ -19,15 +19,16 @@ impl Point {
 trait XMLFormat {
     fn to_xml(&self) -> String;
 }
-struct TEObject {
+#[derive(Debug, Clone)]
+pub struct TEObject {
     type_id: String,
     object_id: String,
 }
 
 impl TEObject {
-    fn new(id: &str) -> TEObject {
+    pub fn new(type_id: &str, id: &str) -> TEObject {
         TEObject {
-            type_id: String::from("color_object"),
+            type_id: type_id.to_string(),
             object_id: id.to_string(),
         }
     }
@@ -56,9 +57,9 @@ impl XMLFormat for TEField {
     }
 }
 
-struct Reservation {
+struct Reservation<'a> {
     start_time: DateTime<Utc>, // start timestamp
-    objects: Vec<TEObject>,
+    objects: Vec<&'a TEObject>,
     fields: Vec<TEField>,
     start_time_offset: Duration, // Offset from start timestamp
     duration: Duration,
@@ -70,13 +71,15 @@ pub struct ServerParams {
     pub auth_server: String,
     pub org: String,
     pub reservation_mode: String,
+    pub canvas_object: TEObject,
+    pub color_objects: Vec<TEObject>,
 }
 
-impl XMLFormat for Reservation {
+impl XMLFormat for Reservation<'_> {
     fn to_xml(&self) -> String {
         const DATE_FORMAT: &str = "%Y%m%dT%H%M00";
         format!(
-            "<reservation><begin>{}</begin><end>{}</end><objects><object><type>canvas</type><value>_te_411193</value></object>{}</objects><fields>{}</fields><organizations><organization>{}</organization></organizations></reservation>",
+            "<reservation><begin>{}</begin><end>{}</end><objects>{}</objects><fields>{}</fields><organizations><organization>{}</organization></organizations></reservation>",
             self.start_time.add(self.start_time_offset).format(DATE_FORMAT),
             self.start_time
                 .add(self.start_time_offset)
@@ -99,7 +102,7 @@ pub fn convert_image_to_reservation(
     dimensions: (u32, u32),
     start_datetime: DateTime<Utc>,
     server_params: ServerParams,
-) -> String {
+) -> Result<String, String> {
     let reservations: Vec<Reservation> = image
         .iter()
         .enumerate()
@@ -107,22 +110,29 @@ pub fn convert_image_to_reservation(
             convert_pixel_to_reservation(
                 *color,
                 Point::new(i, dimensions),
-                Some(10),
-                server_params.org.as_str(),
                 start_datetime,
+                10,
+                server_params.org.as_str(),
+                &server_params.color_objects,
+                &server_params.canvas_object,
             )
         })
         .flatten()
         .collect();
 
-    create_xml_payload(reservations)
+    Ok(create_xml_payload(reservations))
+}
+
+pub fn get_default_color_objects(palette_size: u8) -> Vec<TEObject> {
+    (0..palette_size)
+        .into_iter()
+        .map(|idx| TEObject::new("color_object", format!("object_color_{}", idx).as_str()))
+        .collect()
 }
 
 fn create_xml_payload(reservations: Vec<Reservation>) -> String {
     format!(
-        r#"<tns:timeedit>
-    {}   
-</tns:timeedit>"#,
+        "<tns:timeedit>{}</tns:timeedit>",
         reservations
             .iter()
             .map(|reservation| reservation.to_xml())
@@ -131,37 +141,24 @@ fn create_xml_payload(reservations: Vec<Reservation>) -> String {
     )
 }
 
-fn convert_pixel_to_reservation(
+fn convert_pixel_to_reservation<'a>(
     color: u8,
     coord: Point,
-    timestep: Option<u32>,
+    start_time: DateTime<Utc>,
+    timestep: u32,
     org: &str,
-    start_datetime: DateTime<Utc>,
-) -> Option<Reservation> {
-    let timestep = timestep.unwrap_or(10);
-    let color_objects: Vec<String> = (0..19).map(|n| format!("object_color_{}", n - 1)).collect();
-    if color < 1 {
-        return Some(Reservation {
-            start_time: start_datetime,
-            objects: vec![TEObject::new("object_color_11")],
-            fields: vec![],
-            start_time_offset: Duration::minutes(
-                (coord.x * Duration::days(1).num_minutes() as u32 + coord.y * timestep) as i64,
-            ),
-            duration: Duration::minutes(timestep as i64),
-            org: org.to_string(),
-        });
-    } else if color >= color_objects.len() as u8 {
-        panic!("Color was out of range: {}", color);
+    color_objects: &'a Vec<TEObject>,
+    canvas_object: &'a TEObject,
+) -> Result<Reservation<'a>, String> {
+    if color >= color_objects.len() as u8 {
+        return Err(format!("Color was out of range: {}", color));
     } else {
-        return Some(Reservation {
-            start_time: start_datetime,
-            objects: vec![TEObject::new(
-                color_objects.get(color as usize).unwrap().as_str(),
-            )],
+        return Ok(Reservation {
+            start_time,
+            objects: vec![&color_objects.get(color as usize).unwrap(), canvas_object],
             fields: vec![],
             start_time_offset: Duration::minutes(
-                (coord.x * Duration::days(1).num_minutes() as u32 + coord.y * timestep) as i64,
+                (Duration::days(coord.x.into()).num_minutes() as u32 + coord.y * timestep) as i64,
             ),
             duration: Duration::minutes(timestep as i64),
             org: org.to_string(),

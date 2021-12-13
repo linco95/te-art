@@ -18,7 +18,6 @@ pub struct InputData {
 
 pub fn get_palette() -> Vec<Rgb> {
     Vec::from([
-        [1, 1, 1],
         [172, 218, 148],
         [255, 254, 231],
         [147, 185, 238],
