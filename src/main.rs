@@ -20,14 +20,14 @@ use crate::config::Config;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct AppConfig {
-    size: u32,
     login_name: String,
-    auth_server: String,
-    org: String,
-    reservation_mode: String,
+    size: u32,
     start_datetime: String,
+    reservation_mode: String,
+    org: String,
     canvas_object: (String, String),
     color_objects: Vec<(String, String)>,
+    auth_server: String,
 }
 
 impl Default for AppConfig {
