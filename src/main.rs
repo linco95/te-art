@@ -79,7 +79,6 @@ impl From<AppConfig> for ServerParams {
 
 fn main() -> std::result::Result<(), Box<dyn Error>> {
     let cfg: AppConfig = confy::load_path("./teart_cfg")?;
-    println!("{:?}", cfg);
 
     let args: Vec<String> = env::args().collect();
 
