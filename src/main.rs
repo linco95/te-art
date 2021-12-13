@@ -8,15 +8,66 @@ use std::{
     process,
 };
 
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use serde_derive::{Deserialize, Serialize};
+
 use teart::{
-    image_parsing::{get_palette, get_raw_buffer, parse_image, save_image, InputData},
-    reservation_converter::{
-        convert_image_to_reservation, get_default_color_objects, ServerParams, TEObject,
-    },
+    image_parsing::{get_raw_buffer, parse_image, save_image, InputData},
+    reservation_converter::{convert_image_to_reservation, ServerParams, TEObject, DATE_FORMAT},
 };
 
 use crate::config::Config;
+
+#[derive(Serialize, Deserialize)]
+struct AppConfig {
+    size: u32,
+    login_name: String,
+    auth_server: String,
+    org: String,
+    reservation_mode: String,
+    start_datetime: String,
+    canvas_object: (String, String),
+    color_objects: Vec<(String, String)>,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            size: 128,
+            login_name: "Enter username...".to_string(),
+            auth_server: "timeedit".to_string(),
+            org: "admin".to_string(),
+            reservation_mode: "coloring".to_string(),
+            start_datetime: "20220103T000000".to_string(),
+            canvas_object: ("canvas".to_string(), "linn".to_string()),
+            color_objects: vec![("canvas_object".to_string(), "color_object_0".to_string())],
+        }
+    }
+}
+
+impl From<AppConfig> for ServerParams {
+    fn from(cfg: AppConfig) -> Self {
+        let naive_start_datetime =
+            NaiveDateTime::parse_from_str(&cfg.start_datetime, DATE_FORMAT).unwrap();
+
+        ServerParams {
+            login_name: cfg.login_name,
+            auth_server: cfg.auth_server,
+            org: cfg.org,
+            reservation_mode: cfg.reservation_mode,
+            canvas_object: TEObject::new(
+                cfg.canvas_object.0.as_str(),
+                cfg.canvas_object.1.as_str(),
+            ),
+            color_objects: cfg
+                .color_objects
+                .iter()
+                .map(|(type_id, object_id)| TEObject::new(type_id.as_str(), object_id.as_str()))
+                .collect(),
+            start_datetime: DateTime::<Utc>::from_utc(naive_start_datetime, Utc),
+        }
+    }
+}
 
 fn main() -> std::result::Result<(), Box<dyn Error>> {
     const SIZE: u32 = 128;
@@ -51,28 +102,10 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         .as_str(),
     );
 
-    let login_name = "TEAdmin_ak".to_string();
-    let auth_server = "timeedit".to_string();
-    let org = "admin".to_string();
-    let reservation_mode = "StudentGroupRoomBooking".to_string();
-    let start_datetime = Utc.ymd(2022, 1, 1).and_hms_milli(0, 0, 0, 0);
-    let canvas_object = TEObject::new("canvas", "_te_411193");
-    let color_objects = get_default_color_objects(get_palette().len() as u8);
-
-    let server_params = ServerParams {
-        login_name,
-        auth_server,
-        org,
-        reservation_mode,
-        canvas_object,
-        color_objects,
-    };
-
     let xml_payload = convert_image_to_reservation(
         quant_res.quantized_image.into_raw_vec(),
         dimensions,
-        start_datetime,
-        server_params,
+        AppConfig::default().into(),
     );
 
     write(

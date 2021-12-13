@@ -65,6 +65,7 @@ struct Reservation<'a> {
     duration: Duration,
     org: String,
 }
+pub const DATE_FORMAT: &str = "%Y%m%dT%H%M00";
 
 pub struct ServerParams {
     pub login_name: String,
@@ -73,11 +74,11 @@ pub struct ServerParams {
     pub reservation_mode: String,
     pub canvas_object: TEObject,
     pub color_objects: Vec<TEObject>,
+    pub start_datetime: DateTime<Utc>,
 }
 
 impl XMLFormat for Reservation<'_> {
     fn to_xml(&self) -> String {
-        const DATE_FORMAT: &str = "%Y%m%dT%H%M00";
         format!(
             "<reservation><begin>{}</begin><end>{}</end><objects>{}</objects><fields>{}</fields><organizations><organization>{}</organization></organizations></reservation>",
             self.start_time.add(self.start_time_offset).format(DATE_FORMAT),
@@ -100,7 +101,6 @@ impl XMLFormat for Reservation<'_> {
 pub fn convert_image_to_reservation(
     image: Vec<u8>,
     dimensions: (u32, u32),
-    start_datetime: DateTime<Utc>,
     server_params: ServerParams,
 ) -> Result<String, String> {
     let reservations: Vec<Reservation> = image
@@ -110,7 +110,7 @@ pub fn convert_image_to_reservation(
             convert_pixel_to_reservation(
                 *color,
                 Point::new(i, dimensions),
-                start_datetime,
+                server_params.start_datetime,
                 10,
                 server_params.org.as_str(),
                 &server_params.color_objects,
@@ -147,7 +147,7 @@ fn convert_pixel_to_reservation<'a>(
     start_time: DateTime<Utc>,
     timestep: u32,
     org: &str,
-    color_objects: &'a Vec<TEObject>,
+    color_objects: &'a [TEObject],
     canvas_object: &'a TEObject,
 ) -> Result<Reservation<'a>, String> {
     if color >= color_objects.len() as u8 {
@@ -155,7 +155,7 @@ fn convert_pixel_to_reservation<'a>(
     } else {
         return Ok(Reservation {
             start_time,
-            objects: vec![&color_objects.get(color as usize).unwrap(), canvas_object],
+            objects: vec![color_objects.get(color as usize).unwrap(), canvas_object],
             fields: vec![],
             start_time_offset: Duration::minutes(
                 (Duration::days(coord.x.into()).num_minutes() as u32 + coord.y * timestep) as i64,
