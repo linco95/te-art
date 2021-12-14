@@ -150,8 +150,19 @@ fn convert_pixel_to_reservation<'a>(
     color_objects: &'a [TEObject],
     canvas_object: &'a TEObject,
 ) -> Result<Reservation<'a>, String> {
-    if color >= color_objects.len() as u8 {
+    if color >= color_objects.len() as u8 + 1 {
         return Err(format!("Color was out of range: {}", color));
+    } else if color == color_objects.len() as u8 {
+        return Ok(Reservation {
+            start_time,
+            objects: vec![color_objects.get(11).unwrap(), canvas_object],
+            fields: vec![],
+            start_time_offset: Duration::minutes(
+                (Duration::days(coord.x.into()).num_minutes() as u32 + coord.y * timestep) as i64,
+            ),
+            duration: Duration::minutes(timestep as i64),
+            org: org.to_string(),
+        });
     } else {
         return Ok(Reservation {
             start_time,
