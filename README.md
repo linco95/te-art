@@ -15,6 +15,11 @@ To run the tool just update the config file (teart_cfg) and run it with path to 
 After it is done converting the image it will provide a preview in output folder. 
 If the preview looks good you can use the XML Importer to import the reservations into TimeEdit. 
 Just select the xml payload file in output folder as import file.
+
+Example:
+1. `./teart`
+2. Update the generated config
+3. `./teart <path_to_image>`
 ****************************************************
 # The config file contains of the following parameters:
 ### login_name: String, 
