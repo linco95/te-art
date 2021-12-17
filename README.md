@@ -39,3 +39,12 @@ List of the color objects (type extid, object extid). These are expected to be c
 ### auth_server: String,
 For xml_importer this should be timeedit
 ****************************************************
+# Recommended view configuration
+* Enable coloring for the color object type
+* Set `No of visible days` to 300
+* Disable Grid in X and Y axis
+* Set start time to 00:00
+* Set end time to 24:00
+* Set weekdays to Mon to Sun
+# Known issues
+* The current solution doesn't handle DST properly. Recommended workaround for now is to make sure that the DST switching days are not included in the time period of `start_datetime + SIZE` time period [#1](https://github.com/linco95/te-art/issues/1)
